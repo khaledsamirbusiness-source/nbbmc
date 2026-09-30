@@ -2407,7 +2407,10 @@ body.admin-mode #ticketImport[data-admin-only="true"]{display:inline-flex!import
     style.textContent=reportCss+`
       .toolbar{display:none!important}
       .report{width:1120px!important;margin:0!important;padding:0!important}
-      .ticketPage{width:1120px!important;height:790px!important;min-height:790px!important;max-height:790px!important;overflow:hidden!important;margin:0!important;padding:24px!important;box-sizing:border-box!important;page-break-after:always!important}
+      .ticketPage{width:1120px!important;height:790px!important;min-height:790px!important;max-height:790px!important;overflow:hidden!important;margin:0!important;padding:24px!important;box-sizing:border-box!important;page-break-after:always!important;display:grid!important;grid-template-rows:auto auto minmax(0,1fr)!important;align-content:stretch!important}
+      .images{gap:10px!important;min-height:0!important;height:auto!important;overflow:hidden!important;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr))!important;grid-template-rows:minmax(0,1fr)!important;align-items:stretch!important}
+      .imgCard{height:auto!important;min-width:0!important;min-height:0!important;overflow:hidden!important;display:grid!important;grid-template-rows:minmax(0,1fr) auto!important}
+      .imgCard img{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;min-height:0!important;object-fit:contain!important;object-position:center center!important;aspect-ratio:auto!important;background:#eef3f5!important}
     `;
     host.appendChild(style);
     document.body.appendChild(host);
@@ -2419,15 +2422,57 @@ body.admin-mode #ticketImport[data-admin-only="true"]{display:inline-flex!import
         host.appendChild(wrap);
         const page=wrap.querySelector(".ticketPage")||wrap.firstElementChild||wrap;
         await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-        const imgs=[...page.querySelectorAll("img")];
+        const imgs=[...page.querySelectorAll(".imgCard img")];
         await Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=img.onerror=resolve;setTimeout(resolve,4000)})));
-        const canvas=await html2canvas(page,{scale:1.35,useCORS:true,allowTaint:true,backgroundColor:"#ffffff",logging:false});
-        const img=canvas.toDataURL("image/jpeg",0.86);
+
+        /* html2canvas قد لا يطبق object-fit:contain بدقة، لذلك نحدد أبعاد
+           الصورة فعلياً قبل الالتقاط مع الحفاظ على النسبة الأصلية. */
+        imgs.forEach(img=>{
+          const card=img.closest(".imgCard");
+          if(!card || !img.naturalWidth || !img.naturalHeight) return;
+          const caption=card.querySelector(".imgName");
+          const cs=getComputedStyle(card);
+          const innerW=Math.max(1,card.clientWidth-(parseFloat(cs.borderLeftWidth)||0)-(parseFloat(cs.borderRightWidth)||0));
+          const innerH=Math.max(1,card.clientHeight-(caption?caption.offsetHeight:0)-(parseFloat(cs.borderTopWidth)||0)-(parseFloat(cs.borderBottomWidth)||0));
+          const scale=Math.min(innerW/img.naturalWidth,innerH/img.naturalHeight);
+          const fitW=Math.max(1,Math.floor(img.naturalWidth*scale));
+          const fitH=Math.max(1,Math.floor(img.naturalHeight*scale));
+
+          card.style.display="grid";
+          card.style.gridTemplateRows="minmax(0,1fr) auto";
+          card.style.justifyItems="center";
+          card.style.alignItems="center";
+
+          img.style.setProperty("width",fitW+"px","important");
+          img.style.setProperty("height",fitH+"px","important");
+          img.style.setProperty("max-width","100%","important");
+          img.style.setProperty("max-height","100%","important");
+          img.style.setProperty("min-height","0","important");
+          img.style.setProperty("object-fit","fill","important");
+          img.style.setProperty("align-self","center","important");
+          img.style.setProperty("justify-self","center","important");
+          img.style.setProperty("margin","auto","important");
+          img.style.setProperty("aspect-ratio","auto","important");
+        });
+
+        await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+        const canvas=await html2canvas(page,{
+          scale:1.5,
+          useCORS:true,
+          allowTaint:true,
+          backgroundColor:"#ffffff",
+          logging:false,
+          imageTimeout:15000,
+          removeContainer:true
+        });
+        /* ضغط متوازن قريب من PDF الناتج من زر "البلاغات المعروضة":
+           يحافظ على وضوح النص والصور بدون تضخيم الملف إلى عشرات الميجابايت. */
+        const img=canvas.toDataURL("image/jpeg",0.78);
         if(i>0)pdf.addPage("a4","landscape");
         const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
         const ratio=Math.min(pw/canvas.width,ph/canvas.height);
         const w=canvas.width*ratio,h=canvas.height*ratio;
-        pdf.addImage(img,"JPEG",(pw-w)/2,(ph-h)/2,w,h,undefined,"FAST");
+        pdf.addImage(img,"JPEG",(pw-w)/2,(ph-h)/2,w,h,undefined,"MEDIUM");
         wrap.remove();
         progress?.(i+1,items.length);
       }
