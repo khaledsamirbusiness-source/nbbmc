@@ -1066,7 +1066,7 @@ body.admin-mode #ticketImport[data-admin-only="true"]{display:inline-flex!import
 
       const source=(typeof F!=="undefined" && Array.isArray(F)) ? F : [];
       const headers=[
-        "رقم البلاغ","الأولوية","الحالة","حالة SLA","بحاجة للانتباه","معاد فتحه",
+        "رقم البلاغ الفرعى","رقم البلاغ الرئيسي","الأولوية","الحالة","حالة SLA","بحاجة للانتباه","معاد فتحه",
         "اسم المشرف","اسم المقاول","النطاق الرئيسي","النطاق الفرعي 1","تاريخ الإنشاء",
         "تاريخ الحل","وصف الحل",
         "اسم المدرسة","الرقم الوزاري","النوع","الوصف"
@@ -1074,6 +1074,7 @@ body.admin-mode #ticketImport[data-admin-only="true"]{display:inline-flex!import
 
       const rows=[headers,...source.map(r=>[
         r?.caseId??"",
+        r?.requestId??"",
         (typeof lab==="function"?lab("priority",r?.priority):r?.priority)??"",
         (typeof lab==="function"?lab("status",r?.status):r?.status)??"",
         (typeof lab==="function"?lab("sla",r?.slmStatus):r?.slmStatus)??"",
@@ -1094,7 +1095,7 @@ body.admin-mode #ticketImport[data-admin-only="true"]{display:inline-flex!import
 
       const maxCols=headers.length;
       const lastCol=colName(maxCols);
-      const widths=[19,12,16,16,18,18,20,22,18,22,20,20,28,38,16,12,60];
+      const widths=[19,22,12,16,18,18,20,22,18,22,20,20,28,38,16,12,60];
       const cols=widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("");
 
       const sheetRows=rows.map((row,ri)=>
